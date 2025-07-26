@@ -1,87 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Talha's Downloader</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    @keyframes fadeInUp {
-      0% { opacity: 0; transform: translateY(30px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    .animate-fade {
-      animation: fadeInUp 0.6s ease-in-out both;
-    }
-    .glass {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(8px);
-    }
-    body {
-      background: linear-gradient(to right, #0f0f0f, #1a1a1a);
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talha's Downloader</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    @keyframes fadeInUp {
+      0% {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade {
+      animation: fadeInUp 0.6s ease-in-out both;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+    }
+
+    body {
+      background: linear-gradient(to right, #0f0f0f, #1a1a1a);
+    }
+  </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center px-4">
 
-  <div class="w-full max-w-md p-6 rounded-xl glass animate-fade shadow-xl">
-    <h1 class="text-3xl font-extrabold text-center mb-6">🔗 Talha's Downloader</h1>
+  <div class="w-full max-w-md p-6 rounded-xl glass animate-fade shadow-xl">
+    <h1 class="text-3xl font-extrabold text-center mb-6">🔗 Talha's Downloader</h1>
 
-    <form id="downloadForm" class="space-y-4">
-      <input type="url" id="url" placeholder="Enter Direct Download URL" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">⚡ Generate Download Link</button>
-    </form>
+    <form id="downloadForm" class="space-y-4">
+      <input type="url" id="url" placeholder="Enter Direct Download URL" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">⚡ Generate Download Link</button>
+    </form>
 
-    <div id="result" class="hidden mt-8 text-center animate-fade">
-      <h2 class="text-xl font-bold mb-4">✅ Download Link Generated</h2>
-      <a id="downloadBtn" href="#" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
+    <div id="result" class="hidden mt-8 text-center animate-fade">
+      <h2 class="text-xl font-bold mb-4">✅ Download Link Generated</h2>
+      <a id="downloadBtn" href="#" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
 
-      <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed">
-        <strong>Welcome to Talha's Downloader.</strong><br>
-        This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
-        <span class="font-semibold text-white">Made by Talha</span>
-      </p>
-    </div>
-  </div>
+      <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed">
+        <strong>Welcome to Talha's Downloader.</strong><br>
+        This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
+        <span class="font-semibold text-white">Made by Talha</span>
+      </p>
+    </div>
+  </div>
 
-<script>
-const SECRET_KEY = "Talha<what!"; // Must match Worker key
+  <script>
+    document.getElementById('downloadForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      const name = document.getElementById('name').value.trim();
+      const worker = "https://talhasdownloader.talha07.workers.dev";
+      const finalLink = `${worker}/?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
 
-async function encryptAES(text, keyString) {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(keyString.padEnd(32)); // 256-bit key
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await crypto.subtle.importKey("raw", keyData, "AES-GCM", false, ["encrypt"]);
-
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    encoder.encode(text)
-  );
-
-  const fullData = new Uint8Array(iv.length + encrypted.byteLength);
-  fullData.set(iv, 0);
-  fullData.set(new Uint8Array(encrypted), iv.length);
-
-  return btoa(String.fromCharCode(...fullData))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); // base64url
-}
-
-document.getElementById('downloadForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const url = document.getElementById('url').value.trim();
-  const name = document.getElementById('name').value.trim();
-  const worker = "https://talhasdownloader.talha07.workers.dev";
-
-  const encryptedUrl = await encryptAES(url, SECRET_KEY);
-  const finalLink = `${worker}/?url=${encodeURIComponent(encryptedUrl)}&name=${encodeURIComponent(name)}`;
-
-  document.getElementById('downloadBtn').href = finalLink;
-  document.getElementById('result').classList.remove('hidden');
-});
-</script>
-
+      document.getElementById('downloadBtn').href = finalLink;
+      document.getElementById('result').classList.remove('hidden');
+    });
+  </script>
 </body>
 </html>
