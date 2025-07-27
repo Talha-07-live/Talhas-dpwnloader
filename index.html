@@ -10,33 +10,37 @@
       0% { opacity: 0; transform: translateY(30px); }
       100% { opacity: 1; transform: translateY(0); }
     }
-
     .animate-fade { animation: fadeInUp 0.6s ease-in-out both; }
     .glass {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(8px);
     }
-
     body { background: linear-gradient(to right, #0f0f0f, #1a1a1a); }
   </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center px-4">
 
   <div class="w-full max-w-md p-6 rounded-xl glass animate-fade shadow-xl">
-    <h1 class="text-3xl font-extrabold text-center mb-6">🔗 Talha's Downloader</h1>
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center mb-6 break-words leading-snug">🔗 Talha's Downloader</h1>
 
     <form id="downloadForm" class="space-y-4">
-      <input type="url" id="url" placeholder="Enter Direct Download URL" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">⚡ Generate Download Link</button>
+      <input type="url" id="url" placeholder="Enter Direct Download URL"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+
+      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+
+      <button type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">⚡ Generate Download Link</button>
     </form>
 
     <div id="result" class="hidden mt-8 text-center animate-fade">
-      <h2 class="text-xl font-bold mb-4">✅ Download Link Generated</h2>
-      <a id="downloadBtn" href="#" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
+      <h2 class="text-xl font-bold mb-4 break-words">✅ Download Link Generated</h2>
+      <a id="downloadBtn" href="#"
+        class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
 
-      <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed">
+      <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed text-left break-words">
         <strong>Welcome to Talha's Downloader.</strong><br>
         This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
         <span class="font-semibold text-white">Made by Talha</span>
