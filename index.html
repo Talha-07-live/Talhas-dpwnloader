@@ -64,13 +64,26 @@
   </div>
 
   <script>
-    const SECRET_KEY = "Talha<what!"; // আপনার worker এর secret key এখানে অবশ্যই একই হবে
+    const SECRET_KEY = "Talha<what!"; // Your secret key (must match worker)
 
-    // TextEncoder helper
-    const encoder = new TextEncoder();
+    // Base64 URL safe encode
+    function base64UrlEncode(str) {
+      return btoa(str)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    }
 
-    // HMAC SHA-256 সিগনেচার জেনারেটর (Web Crypto API)
+    // Base64 URL safe decode
+    function base64UrlDecode(str) {
+      str = str.replace(/-/g, "+").replace(/_/g, "/");
+      // Pad with '=' to multiple of 4
+      while (str.length % 4) str += "=";
+      return atob(str);
+    }
+
     async function generateSignature(url, timestamp) {
+      const encoder = new TextEncoder();
       const keyData = encoder.encode(SECRET_KEY);
       const cryptoKey = await crypto.subtle.importKey(
         "raw",
@@ -88,27 +101,6 @@
       return signatureHex;
     }
 
-    // AES-GCM Encrypt function (Worker এর মতো same)
-    async function encrypt(text) {
-      const data = encoder.encode(text);
-      const keyData = encoder.encode(SECRET_KEY.padEnd(32, " "));
-      const cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyData.slice(0, 32),
-        "AES-GCM",
-        false,
-        ["encrypt"]
-      );
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
-      const fullBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
-      fullBuffer.set(iv);
-      fullBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
-      // base64 encode
-      return btoa(String.fromCharCode(...fullBuffer));
-    }
-
-    // sanitize filename function (same as worker)
     function sanitize(name) {
       return name.trim().replace(/[<>:"/\\|?*]+/g, "_");
     }
@@ -117,34 +109,21 @@
       e.preventDefault();
       const urlRaw = document.getElementById("url").value.trim();
       const nameRaw = document.getElementById("name").value.trim();
+      if (!urlRaw || !nameRaw) return alert("Both URL and name are required!");
 
-      if (!urlRaw || !nameRaw) {
-        alert("URL এবং নাম উভয়ই দিতে হবে!");
-        return;
-      }
-
-      const timestamp = Date.now().toString();
-      const sanitizedFileName = sanitize(nameRaw);
+      const timestamp = Math.floor(Date.now() / 1000);
       const signature = await generateSignature(urlRaw, timestamp);
+      const sanitizedFileName = sanitize(nameRaw);
 
-      // Prepare payload object
-      const payload = {
-        url: urlRaw,
-        ts: timestamp,
-        sig: signature,
-        name: sanitizedFileName,
-      };
+      // Encode the URL with base64 url safe
+      const obfuscatedUrl = base64UrlEncode(urlRaw);
 
-      // Encrypt payload JSON string
-      const encryptedPayload = await encrypt(JSON.stringify(payload));
-
-      // Prepare final link with ?data=encryptedPayload
       const worker = "https://talhasdownloader.talha07.workers.dev";
-      const finalLink = `${worker}/?data=${encodeURIComponent(encryptedPayload)}`;
+      const finalLink = `${worker}/download?url=${encodeURIComponent(
+        obfuscatedUrl
+      )}&ts=${timestamp}&sig=${signature}&name=${encodeURIComponent(sanitizedFileName)}`;
 
-      // Show result
-      const downloadBtn = document.getElementById("downloadBtn");
-      downloadBtn.href = finalLink;
+      document.getElementById("downloadBtn").href = finalLink;
       document.getElementById("result").classList.remove("hidden");
     });
   </script>
