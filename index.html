@@ -3,83 +3,125 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Download Ready</title>
+  <title>Secure Downloader</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      height: 100vh;
-      background: linear-gradient(to bottom right, #000000, #1c1c1c);
-      color: white;
+      margin: 0;
       font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: white;
       display: flex;
-      justify-content: center;
       align-items: center;
-      text-align: center;
-      padding: 20px;
+      justify-content: center;
+      min-height: 100vh;
     }
 
     .container {
-      max-width: 500px;
-      width: 100%;
+      text-align: center;
+      padding: 20px;
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.3);
+      max-width: 95%;
+      width: 400px;
     }
 
     h1 {
-      font-size: 2em;
-      margin-bottom: 15px;
+      font-size: 1.8em;
+      margin-bottom: 20px;
+      color: #00ffcc;
     }
 
-    p {
-      font-size: 1em;
-      margin-bottom: 30px;
-      color: #ccc;
-    }
-
-    .button {
-      display: inline-block;
-      padding: 12px 25px;
-      font-size: 1em;
-      font-weight: bold;
-      color: white;
-      background-color: #007bff;
+    button {
+      padding: 12px 24px;
+      background-color: #00ffcc;
+      color: #000;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      text-decoration: none;
+      font-size: 16px;
       transition: background-color 0.3s ease;
     }
 
-    .button:hover {
-      background-color: #0056b3;
+    button:hover {
+      background-color: #00ddaa;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    a {
+      color: #00ffcc;
+      text-decoration: none;
+      font-size: 16px;
+      display: block;
+      margin-top: 15px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Download Ready</h1>
-    <p>Click the button below to start your secure download.</p>
-    <a id="downloadBtn" class="button">Download</a>
+    <h1>Welcome to Talha's Downloader</h1>
+    <button id="generateBtn">Generate Download Link</button>
+    <a id="downloadLink" class="hidden" href="#" download>Click here to download</a>
   </div>
 
   <script>
-    // Extract query params
+    const SECRET_KEY = "Talha<what!";
     const urlParams = new URLSearchParams(window.location.search);
-    const ts = urlParams.get("ts");
-    const sig = urlParams.get("sig");
-    const name = urlParams.get("name");
+    const encrypted = urlParams.get("data");
+    const fileName = urlParams.get("name") || "file";
 
-    // Validate and construct download link
-    if (ts && sig && name) {
-      const downloadURL = `/download?ts=${encodeURIComponent(ts)}&sig=${encodeURIComponent(sig)}&name=${encodeURIComponent(name)}`;
-      document.getElementById("downloadBtn").href = downloadURL;
-    } else {
-      document.querySelector("p").textContent = "Invalid or expired download link.";
-      document.getElementById("downloadBtn").style.display = "none";
+    async function decryptPayload(encryptedHex, keyStr) {
+      const keyData = new TextEncoder().encode(keyStr.padEnd(32, '0').slice(0, 32));
+      const iv = new Uint8Array(12).fill(1); // static IV (should be changed in production)
+      const encryptedData = Uint8Array.from(atob(encryptedHex), c => c.charCodeAt(0));
+
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw", keyData, { name: "AES-GCM" }, false, ["decrypt"]
+      );
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        cryptoKey,
+        encryptedData
+      );
+
+      return new TextDecoder().decode(decrypted);
     }
+
+    async function generateSignature(url, timestamp) {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(SECRET_KEY);
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      );
+      const data = encoder.encode(url + timestamp);
+      const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
+      return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+      if (!encrypted) {
+        alert("Invalid or missing encrypted URL.");
+        return;
+      }
+
+      try {
+        const decryptedURL = await decryptPayload(encrypted, SECRET_KEY);
+        const timestamp = Date.now();
+        const sig = await generateSignature(decryptedURL, timestamp);
+
+        const finalLink = `/download?ts=${timestamp}&sig=${sig}&name=${encodeURIComponent(fileName)}&data=${encodeURIComponent(encrypted)}`;
+        const anchor = document.getElementById("downloadLink");
+        anchor.href = finalLink;
+        anchor.classList.remove("hidden");
+      } catch (err) {
+        console.error("Decryption error:", err);
+        alert("Failed to decrypt link.");
+      }
+    });
   </script>
 </body>
 </html>
