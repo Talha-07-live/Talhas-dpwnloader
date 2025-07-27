@@ -7,29 +7,16 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     @keyframes fadeInUp {
-      0% {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      100% {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      0% { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
-
-    .animate-fade {
-      animation: fadeInUp 0.6s ease-in-out both;
-    }
-
+    .animate-fade { animation: fadeInUp 0.6s ease-in-out both; }
     .glass {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(8px);
     }
-
-    body {
-      background: linear-gradient(to right, #0f0f0f, #1a1a1a);
-    }
+    body { background: linear-gradient(to right, #0f0f0f, #1a1a1a); }
   </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center px-4">
@@ -46,7 +33,6 @@
     <div id="result" class="hidden mt-8 text-center animate-fade">
       <h2 class="text-xl font-bold mb-4">✅ Download Link Generated</h2>
       <a id="downloadBtn" href="#" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
-
       <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed">
         <strong>Welcome to Talha's Downloader.</strong><br>
         This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
@@ -56,12 +42,31 @@
   </div>
 
   <script>
-    document.getElementById('downloadForm').addEventListener('submit', function(e) {
+    const SECRET_KEY = "Talha<what!"; // Must match with Worker
+
+    async function generateSignature(url, timestamp) {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(SECRET_KEY);
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      );
+      const data = encoder.encode(url + timestamp);
+      const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
+      return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    }
+
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const url = document.getElementById('url').value.trim();
       const name = document.getElementById('name').value.trim();
+      const timestamp = Math.floor(Date.now() / 1000);
+      const sig = await generateSignature(url, timestamp);
+
       const worker = "https://talhasdownloader.talha07.workers.dev";
-      const finalLink = `${worker}/?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
+      const finalLink = `${worker}/download?ts=${timestamp}&sig=${encodeURIComponent(sig)}&name=${encodeURIComponent(name)}`;
+
+      // Save original URL in sessionStorage so Worker can verify
+      sessionStorage.setItem(`url_${timestamp}`, url);
 
       document.getElementById('downloadBtn').href = finalLink;
       document.getElementById('result').classList.remove('hidden');
