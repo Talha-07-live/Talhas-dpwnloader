@@ -51,8 +51,27 @@
         "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
       );
       const data = encoder.encode(url + timestamp);
-      const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
-      return btoa(String.fromCharCode(...new Uint8Array(signature)));
+      const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, data);
+      const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+      const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      return signatureHex;
+    }
+
+    async function encrypt(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const keyData = encoder.encode(SECRET_KEY.padEnd(32));
+      const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
+      const fullBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+      fullBuffer.set(iv);
+      fullBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
+      return btoa(String.fromCharCode(...fullBuffer));
+    }
+
+    async function encryptPayload(payload) {
+      return await encrypt(JSON.stringify(payload));
     }
 
     document.getElementById('downloadForm').addEventListener('submit', async function(e) {
@@ -62,11 +81,17 @@
       const timestamp = Math.floor(Date.now() / 1000);
       const sig = await generateSignature(url, timestamp);
 
-      const worker = "https://talhasdownloader.talha07.workers.dev";
-      const finalLink = `${worker}/download?ts=${timestamp}&sig=${encodeURIComponent(sig)}&name=${encodeURIComponent(name)}`;
+      const payload = {
+        url: url,
+        ts: timestamp,
+        sig: sig,
+        name: name
+      };
 
-      // Save original URL in sessionStorage so Worker can verify
-      sessionStorage.setItem(`url_${timestamp}`, url);
+      const encryptedPayload = await encryptPayload(payload);
+
+      const worker = "https://talhasdownloader.talha07.workers.dev";
+      const finalLink = `${worker}/?data=${encodeURIComponent(encryptedPayload)}`;
 
       document.getElementById('downloadBtn').href = finalLink;
       document.getElementById('result').classList.remove('hidden');
