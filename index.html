@@ -1,127 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Secure Downloader</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      text-align: center;
-      padding: 20px;
-      background-color: #1e1e1e;
-      border-radius: 12px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.3);
-      max-width: 95%;
-      width: 400px;
-    }
-
-    h1 {
-      font-size: 1.8em;
-      margin-bottom: 20px;
-      color: #00ffcc;
-    }
-
-    button {
-      padding: 12px 24px;
-      background-color: #00ffcc;
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 16px;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background-color: #00ddaa;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    a {
-      color: #00ffcc;
-      text-decoration: none;
-      font-size: 16px;
-      display: block;
-      margin-top: 15px;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talha's Downloader</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(30px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade { animation: fadeInUp 0.6s ease-in-out both; }
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+    }
+    body {
+      background: linear-gradient(to right, #0f0f0f, #1a1a1a);
+    }
+  </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Welcome to Talha's Downloader</h1>
-    <button id="generateBtn">Generate Download Link</button>
-    <a id="downloadLink" class="hidden" href="#" download>Click here to download</a>
-  </div>
+<body class="text-white min-h-screen flex flex-col items-center justify-center px-4 text-center">
 
-  <script>
-    const SECRET_KEY = "Talha<what!";
-    const urlParams = new URLSearchParams(window.location.search);
-    const encrypted = urlParams.get("data");
-    const fileName = urlParams.get("name") || "file";
+  <!-- Centered container -->
+  <div class="w-full max-w-md mx-auto p-6 rounded-xl glass animate-fade shadow-xl">
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center mb-6 break-words leading-snug">
+      🔗 Talha's Downloader
+    </h1>
 
-    async function decryptPayload(encryptedHex, keyStr) {
-      const keyData = new TextEncoder().encode(keyStr.padEnd(32, '0').slice(0, 32));
-      const iv = new Uint8Array(12).fill(1); // static IV (should be changed in production)
-      const encryptedData = Uint8Array.from(atob(encryptedHex), c => c.charCodeAt(0));
+    <form id="downloadForm" class="space-y-4">
+      <input type="url" id="url" placeholder="Enter Direct Download URL"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
 
-      const cryptoKey = await crypto.subtle.importKey(
-        "raw", keyData, { name: "AES-GCM" }, false, ["decrypt"]
-      );
+      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
 
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv },
-        cryptoKey,
-        encryptedData
-      );
+      <button type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">
+        ⚡ Generate Download Link
+      </button>
+    </form>
 
-      return new TextDecoder().decode(decrypted);
-    }
+    <div id="result" class="hidden mt-8 text-center animate-fade">
+      <h2 class="text-xl font-bold mb-4 break-words">✅ Download Link Generated</h2>
+      <a id="downloadBtn" href="#"
+        class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">
+        ⬇️ Download Here
+      </a>
 
-    async function generateSignature(url, timestamp) {
-      const encoder = new TextEncoder();
-      const keyData = encoder.encode(SECRET_KEY);
-      const cryptoKey = await crypto.subtle.importKey(
-        "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-      );
-      const data = encoder.encode(url + timestamp);
-      const signature = await crypto.subtle.sign("HMAC", cryptoKey, data);
-      return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
+      <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed text-left break-words">
+        <strong>Welcome to Talha's Downloader.</strong><br>
+        This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
+        <span class="font-semibold text-white">Made by Talha</span>
+      </p>
+    </div>
+  </div>
 
-    document.getElementById("generateBtn").addEventListener("click", async () => {
-      if (!encrypted) {
-        alert("Invalid or missing encrypted URL.");
-        return;
-      }
+  <script>
+    async function encrypt(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const keyData = encoder.encode("Talha<what!".padEnd(32));
+      const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
+      const fullBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+      fullBuffer.set(iv);
+      fullBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
+      return btoa(String.fromCharCode(...fullBuffer));
+    }
 
-      try {
-        const decryptedURL = await decryptPayload(encrypted, SECRET_KEY);
-        const timestamp = Date.now();
-        const sig = await generateSignature(decryptedURL, timestamp);
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const url = document.getElementById('url').value.trim();
+      const name = document.getElementById('name').value.trim();
+      const payload = { url, name };
+      const encrypted = await encrypt(JSON.stringify(payload));
+      const finalLink = `https://talhasdownloader.talha07.workers.dev/?data=${encodeURIComponent(encrypted)}`;
 
-        const finalLink = `/download?ts=${timestamp}&sig=${sig}&name=${encodeURIComponent(fileName)}&data=${encodeURIComponent(encrypted)}`;
-        const anchor = document.getElementById("downloadLink");
-        anchor.href = finalLink;
-        anchor.classList.remove("hidden");
-      } catch (err) {
-        console.error("Decryption error:", err);
-        alert("Failed to decrypt link.");
-      }
-    });
-  </script>
+      document.getElementById('downloadBtn').href = finalLink;
+      document.getElementById('result').classList.remove('hidden');
+    });
+  </script>
 </body>
 </html>
