@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Talha's Downloader</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <style>
     @keyframes fadeInUp {
       0% { opacity: 0; transform: translateY(30px); }
@@ -25,76 +25,127 @@
     <h1 class="text-3xl font-extrabold text-center mb-6">🔗 Talha's Downloader</h1>
 
     <form id="downloadForm" class="space-y-4">
-      <input type="url" id="url" placeholder="Enter Direct Download URL" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)" class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">⚡ Generate Download Link</button>
+      <input
+        type="url"
+        id="url"
+        placeholder="Enter Direct Download URL"
+        class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      />
+      <input
+        type="text"
+        id="name"
+        placeholder="Enter File Name (e.g. myvideo.mp4)"
+        class="w-full p-3 rounded bg-black/30 text-dark border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      />
+      <button
+        type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold"
+      >
+        ⚡ Generate Download Link
+      </button>
     </form>
 
     <div id="result" class="hidden mt-8 text-center animate-fade">
       <h2 class="text-xl font-bold mb-4">✅ Download Link Generated</h2>
-      <a id="downloadBtn" href="#" class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">⬇️ Download Here</a>
+      <a
+        id="downloadBtn"
+        href="#"
+        class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors"
+        >⬇️ Download Here</a
+      >
       <p class="text-xs text-gray-300 mt-4 bg-gray-800 p-3 rounded leading-relaxed">
-        <strong>Welcome to Talha's Downloader.</strong><br>
-        This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br>
+        <strong>Welcome to Talha's Downloader.</strong><br />
+        This page made for <span class="text-white font-semibold">"Talha's Collection"</span>.<br />
         <span class="font-semibold text-white">Made by Talha</span>
       </p>
     </div>
   </div>
 
   <script>
-    const SECRET_KEY = "Talha<what!"; // Must match with Worker
+    const SECRET_KEY = "Talha<what!"; // আপনার worker এর secret key এখানে অবশ্যই একই হবে
 
+    // TextEncoder helper
+    const encoder = new TextEncoder();
+
+    // HMAC SHA-256 সিগনেচার জেনারেটর (Web Crypto API)
     async function generateSignature(url, timestamp) {
-      const encoder = new TextEncoder();
       const keyData = encoder.encode(SECRET_KEY);
       const cryptoKey = await crypto.subtle.importKey(
-        "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+        "raw",
+        keyData,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
       );
       const data = encoder.encode(url + timestamp);
       const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, data);
       const signatureArray = Array.from(new Uint8Array(signatureBuffer));
-      const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      const signatureHex = signatureArray
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
       return signatureHex;
     }
 
+    // AES-GCM Encrypt function (Worker এর মতো same)
     async function encrypt(text) {
-      const encoder = new TextEncoder();
       const data = encoder.encode(text);
-      const keyData = encoder.encode(SECRET_KEY.padEnd(32));
-      const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
+      const keyData = encoder.encode(SECRET_KEY.padEnd(32, " "));
+      const cryptoKey = await crypto.subtle.importKey(
+        "raw",
+        keyData.slice(0, 32),
+        "AES-GCM",
+        false,
+        ["encrypt"]
+      );
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
       const fullBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
       fullBuffer.set(iv);
       fullBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
+      // base64 encode
       return btoa(String.fromCharCode(...fullBuffer));
     }
 
-    async function encryptPayload(payload) {
-      return await encrypt(JSON.stringify(payload));
+    // sanitize filename function (same as worker)
+    function sanitize(name) {
+      return name.trim().replace(/[<>:"/\\|?*]+/g, "_");
     }
 
-    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+    document.getElementById("downloadForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const url = document.getElementById('url').value.trim();
-      const name = document.getElementById('name').value.trim();
-      const timestamp = Math.floor(Date.now() / 1000);
-      const sig = await generateSignature(url, timestamp);
+      const urlRaw = document.getElementById("url").value.trim();
+      const nameRaw = document.getElementById("name").value.trim();
 
+      if (!urlRaw || !nameRaw) {
+        alert("URL এবং নাম উভয়ই দিতে হবে!");
+        return;
+      }
+
+      const timestamp = Date.now().toString();
+      const sanitizedFileName = sanitize(nameRaw);
+      const signature = await generateSignature(urlRaw, timestamp);
+
+      // Prepare payload object
       const payload = {
-        url: url,
+        url: urlRaw,
         ts: timestamp,
-        sig: sig,
-        name: name
+        sig: signature,
+        name: sanitizedFileName,
       };
 
-      const encryptedPayload = await encryptPayload(payload);
+      // Encrypt payload JSON string
+      const encryptedPayload = await encrypt(JSON.stringify(payload));
 
+      // Prepare final link with ?data=encryptedPayload
       const worker = "https://talhasdownloader.talha07.workers.dev";
       const finalLink = `${worker}/?data=${encodeURIComponent(encryptedPayload)}`;
 
-      document.getElementById('downloadBtn').href = finalLink;
-      document.getElementById('result').classList.remove('hidden');
+      // Show result
+      const downloadBtn = document.getElementById("downloadBtn");
+      downloadBtn.href = finalLink;
+      document.getElementById("result").classList.remove("hidden");
     });
   </script>
 </body>
