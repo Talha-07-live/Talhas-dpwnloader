@@ -77,7 +77,7 @@
       const name = document.getElementById('name').value.trim();
       const payload = { url, name };
       const encrypted = await encrypt(JSON.stringify(payload));
-      const finalLink = `https://talhasdownloader.talha07.workers.dev/?data=${encodeURIComponent(encrypted)}`;
+      const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
 
       document.getElementById('downloadBtn').href = finalLink;
       document.getElementById('result').classList.remove('hidden');
