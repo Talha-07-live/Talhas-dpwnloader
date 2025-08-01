@@ -23,7 +23,6 @@
 </head>
 <body class="text-white min-h-screen flex flex-col items-center justify-center px-4 text-center">
 
-  <!-- Centered container -->
   <div class="w-full max-w-md mx-auto p-6 rounded-xl glass animate-fade shadow-xl">
     <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center mb-6 break-words leading-snug">
       🔗 Talha's Downloader
@@ -35,6 +34,11 @@
 
       <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)"
         class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+
+      <button type="button" id="extractBtn"
+        class="w-full bg-yellow-500 hover:bg-yellow-600 transition-colors p-2 rounded text-black font-semibold">
+        🔍 Name Extractor
+      </button>
 
       <button type="submit"
         class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">
@@ -78,9 +82,43 @@
       const payload = { url, name };
       const encrypted = await encrypt(JSON.stringify(payload));
       const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
-
       document.getElementById('downloadBtn').href = finalLink;
       document.getElementById('result').classList.remove('hidden');
+    });
+
+    document.getElementById('extractBtn').addEventListener('click', async function () {
+      const urlInput = document.getElementById('url');
+      const url = urlInput.value.trim();
+
+      if (!url || !url.startsWith('http')) {
+        alert('⚠️ Please enter a valid download URL.');
+        return;
+      }
+
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = '';
+
+        if (disposition && disposition.includes('filename=')) {
+          const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
+          if (match && match[2]) {
+            filename = match[2];
+          }
+        }
+
+        // Fallback: Guess from URL
+        if (!filename) {
+          const urlObj = new URL(url);
+          const path = urlObj.pathname;
+          filename = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || 'downloaded_file';
+        }
+
+        document.getElementById('name').value = filename;
+      } catch (err) {
+        alert('❌ Error extracting file name: ' + err.message);
+      }
     });
   </script>
 </body>
