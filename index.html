@@ -95,29 +95,57 @@
         return;
       }
 
-      try {
-        const response = await fetch(url, { method: 'HEAD' });
+      let filename = '';
 
-        const disposition = response.headers.get('Content-Disposition');
-        let filename = '';
+      // Special case: PixelDrain
+      if (url.includes('pixeldrain.dev/api/file/')) {
+        try {
+          const fileID = url.split('/file/')[1].split('?')[0];
+          const apiURL = `https://pixeldrain.com/api/file/${fileID}/info`;
 
-        if (disposition && disposition.includes('filename=')) {
-          const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
-          if (match && match[2]) {
-            filename = match[2];
+          const response = await fetch(apiURL);
+          const data = await response.json();
+
+          if (data.success && data.name) {
+            filename = data.name;
           }
+        } catch (err) {
+          console.error('❌ PixelDrain fetch error:', err);
         }
+      }
 
-        // Fallback: Guess from URL
-        if (!filename) {
-          const urlObj = new URL(url);
-          const path = urlObj.pathname;
-          filename = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || 'downloaded_file';
+      // Fallback: Other URLs
+      if (!filename) {
+        try {
+          const response = await fetch(url, {
+            method: 'GET',
+            redirect: 'follow'
+          });
+
+          const disposition = response.headers.get('Content-Disposition');
+
+          if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
+            if (match && match[2]) {
+              filename = match[2];
+            }
+          }
+
+          if (!filename) {
+            const urlObj = new URL(response.url || url);
+            const path = urlObj.pathname;
+            filename = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1)) || 'downloaded_file';
+          }
+        } catch (err) {
+          console.error('❌ Fallback fetch error:', err);
         }
+      }
 
+      // Show result
+      if (filename) {
         document.getElementById('name').value = filename;
-      } catch (err) {
-        alert('❌ Error extracting file name: ' + err.message);
+      } else {
+        alert('❌ Could not extract filename.');
       }
     });
   </script>
