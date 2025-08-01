@@ -97,7 +97,7 @@
 
       let filename = '';
 
-      // Special case: PixelDrain
+      // PixelDrain handeling
       if (url.includes('pixeldrain.dev/api/file/')) {
         try {
           const fileID = url.split('/file/')[1].split('?')[0];
@@ -114,7 +114,7 @@
         }
       }
 
-      // Fallback: Other URLs
+      // other link handelar
       if (!filename) {
         try {
           const response = await fetch(url, {
@@ -123,7 +123,6 @@
           });
 
           const disposition = response.headers.get('Content-Disposition');
-
           if (disposition && disposition.includes('filename=')) {
             const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
             if (match && match[2]) {
@@ -141,12 +140,27 @@
         }
       }
 
-      // Show result
-      if (filename) {
-        document.getElementById('name').value = filename;
-      } else {
+      if (!filename) {
         alert('❌ Could not extract filename.');
+        return;
       }
+
+      // dot and file extension reader
+      const lastDotIndex = filename.lastIndexOf('.');
+      let extension = '';
+      if (lastDotIndex !== -1) {
+        extension = filename.substring(lastDotIndex);
+        filename = filename.substring(0, lastDotIndex);
+      }
+
+      // dot into space
+      const cleanedName = filename.replace(/\./g, ' ');
+
+      // [Talha] set
+      const finalName = `[Talha] ${cleanedName}${extension}`;
+
+      // inlut
+      document.getElementById('name').value = finalName;
     });
   </script>
 </body>
