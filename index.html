@@ -126,7 +126,8 @@
       let filename = '';
 
       // PixelDrain special handling
-      url.includes('pixeldrain.dev/api/file/') ||
+      if (
+        url.includes('pixeldrain.dev/api/file/') ||
         url.includes('pixeldra.in/api/file/')
       ) {
         try {
