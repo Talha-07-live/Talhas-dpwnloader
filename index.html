@@ -126,7 +126,9 @@
       let filename = '';
 
       // PixelDrain special handling
-      if (url.includes('pixeldrain.dev/api/file/' 'pixeldra.in/api/file/')) {
+      url.includes('pixeldrain.dev/api/file/') ||
+        url.includes('pixeldra.in/api/file/')
+      ) {
         try {
           const fileID = url.split('/file/')[1].split('?')[0];
           const apiURL = `https://pixeldrain.com/api/file/${fileID}/info`;
