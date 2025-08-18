@@ -125,7 +125,6 @@
 
       let filename = '';
 
-      // PixelDrain special handling
       if (
         url.includes('pixeldrain.dev/api/file/') ||
         url.includes('pixeldra.in/api/file/')
@@ -145,7 +144,6 @@
         }
       }
 
-      // Other links
       if (!filename) {
         try {
           const response = await fetch(url, {
@@ -165,7 +163,6 @@
         }
       }
 
-      // Fallback: extract filename from URL path if filename still empty
       if (!filename) {
         try {
           const urlObj = new URL(url);
@@ -182,7 +179,6 @@
         return;
       }
 
-      // Format filename: replace dots with spaces except extension dot
       const lastDotIndex = filename.lastIndexOf('.');
       let extension = '';
       if (lastDotIndex !== -1 && lastDotIndex < filename.length - 1) {
