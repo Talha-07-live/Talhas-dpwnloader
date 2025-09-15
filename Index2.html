@@ -62,7 +62,7 @@
   </div>
 
   <script>
-    // Deep decode helper
+    // Deep decode helper (sensitized URL -> real URL)
     function deepDecode(str) {
       if (!str) return str;
       let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '');
@@ -78,11 +78,11 @@
       return prev;
     }
 
-    // Encrypt helper
+    // Encrypt helper (🔑 key EXACTLY SAME as you asked)
     async function encrypt(text) {
       const encoder = new TextEncoder();
       const data = encoder.encode(text);
-      const keyData = encoder.encode("Talha<what!".padEnd(32));
+      const keyData = encoder.encode("Talha<what!".padEnd(32)); // DO NOT CHANGE
       const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
@@ -101,27 +101,23 @@
                  .trim();
     }
 
-    // Make URL safe for IDM/Worker
+    // IDM/Worker-safe URL: encode each PATH segment (so [ ] => %5B %5D, space => %20)
     function makeSafeUrl(decodedUrl) {
-      try {
-        const u = new URL(decodedUrl);
-        // encode each path segment properly
-        const safePath = u.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
-        return u.origin + safePath + u.search + u.hash;
-      } catch {
-        return decodedUrl;
-      }
+      const u = new URL(decodedUrl);
+      const safePath = u.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
+      // Keep query/hash as-is (server may require their exact encoding)
+      return u.origin + safePath + u.search + u.hash;
     }
 
-    // Submit
+    // Submit -> build payload for Worker
     document.getElementById('downloadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
 
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
 
-      let rawUrl = urlInput.value.trim();
-      let decodedUrl = deepDecode(rawUrl);
+      const rawUrl = urlInput.value.trim();
+      const decodedUrl = deepDecode(rawUrl);
 
       // Validate decoded URL
       try {
@@ -143,10 +139,9 @@
           name = 'download.bin';
         }
       }
-
       name = cleanFilename(name);
 
-      // ✅ Safe encode URL (keeps %20, %5B etc. for IDM)
+      // 🔐 IMPORTANT: Properly encode path segments for IDM/Worker
       const safeUrl = makeSafeUrl(decodedUrl);
       const payload = { url: safeUrl, name };
 
@@ -157,7 +152,7 @@
       document.getElementById('result').classList.remove('hidden');
     });
 
-    // Extractor
+    // Extractor -> nice filename for UI
     document.getElementById('extractBtn').addEventListener('click', async function () {
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
@@ -209,8 +204,7 @@
       if (!filename) {
         try {
           const u = new URL(url);
-          const path = u.pathname;
-          const lastSegment = path.substring(path.lastIndexOf('/') + 1);
+          const lastSegment = u.pathname.substring(u.pathname.lastIndexOf('/') + 1);
           filename = decodeURIComponent(lastSegment) || '';
         } catch { filename = ''; }
       }
