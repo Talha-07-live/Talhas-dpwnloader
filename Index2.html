@@ -101,6 +101,18 @@
                  .trim();
     }
 
+    // Make URL safe for IDM/Worker
+    function makeSafeUrl(decodedUrl) {
+      try {
+        const u = new URL(decodedUrl);
+        // encode each path segment properly
+        const safePath = u.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
+        return u.origin + safePath + u.search + u.hash;
+      } catch {
+        return decodedUrl;
+      }
+    }
+
     // Submit
     document.getElementById('downloadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -134,8 +146,9 @@
 
       name = cleanFilename(name);
 
-      // ✅ Encode URL again for Worker (keep %20 etc.)
-      const payload = { url: encodeURI(decodedUrl), name };
+      // ✅ Safe encode URL (keeps %20, %5B etc. for IDM)
+      const safeUrl = makeSafeUrl(decodedUrl);
+      const payload = { url: safeUrl, name };
 
       const encrypted = await encrypt(JSON.stringify(payload));
       const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
