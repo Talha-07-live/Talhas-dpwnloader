@@ -62,27 +62,26 @@
   </div>
 
   <script>
-    // Deep decode helper (sensitized URL -> real URL)
+    // NEW: Deep decode helper — percent-encoded URL গুলো বারবার decode করবে যতক্ষণ না আর বদলায়
     function deepDecode(str) {
       if (!str) return str;
-      let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '');
+      let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, ''); // surrounding quotes strip
       for (let i = 0; i < 5; i++) {
         try {
           const dec = decodeURIComponent(prev);
           if (dec === prev) break;
           prev = dec;
         } catch {
-          break;
+          break; // invalid sequence হলে থামবে
         }
       }
       return prev;
     }
 
-    // Encrypt helper (🔑 key EXACTLY SAME as you asked)
     async function encrypt(text) {
       const encoder = new TextEncoder();
       const data = encoder.encode(text);
-      const keyData = encoder.encode("Talha<what!".padEnd(32)); // DO NOT CHANGE
+      const keyData = encoder.encode("Talha<what!".padEnd(32)); // same key (padded)
       const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
@@ -92,59 +91,61 @@
       return btoa(String.fromCharCode(...fullBuffer));
     }
 
-    // Clean filename
+    // NEW: filename clean helper
     function cleanFilename(name) {
       if (!name) return "";
+      // windows-invalid chars replace & trim spaces/dots
       return name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, ' ')
                  .replace(/\s+/g, ' ')
                  .replace(/^\.+|\.+$/g, '')
                  .trim();
     }
 
-    // IDM/Worker-safe URL: encode each PATH segment (so [ ] => %5B %5D, space => %20)
-    function makeSafeUrl(decodedUrl) {
-      const u = new URL(decodedUrl);
-      const safePath = u.pathname.split('/').map(seg => encodeURIComponent(seg)).join('/');
-      // Keep query/hash as-is (server may require their exact encoding)
-      return u.origin + safePath + u.search + u.hash;
-    }
-
-    // Submit -> build payload for Worker
     document.getElementById('downloadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
 
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
 
-      const rawUrl = urlInput.value.trim();
-      const decodedUrl = deepDecode(rawUrl);
+      // NEW: Unsensitize (decode) the URL before everything
+      let rawUrl = urlInput.value.trim();
+      let decodedUrl = deepDecode(rawUrl);
 
-      // Validate decoded URL
+      // যদি scheme না থাকে কিন্তু decode করে ঠিক হয়, সেইটাই ব্যবহার করবো
       try {
+        // validate URL; যদি invalid হয়, error দিবো
         const u = new URL(decodedUrl);
         if (!/^https?:$/.test(u.protocol)) throw new Error('Invalid protocol');
       } catch {
-        alert('⚠️ Please enter a valid HTTP/HTTPS URL.');
+        alert('⚠️ Please enter a valid HTTP/HTTPS URL (after decoding).');
         return;
       }
 
-      // Filename
+      // Name খালি থাকলে extractor-এর মতোই এখানেই fallback নিয়ে আসি (quick path)
       let name = nameInput.value.trim();
       if (!name) {
         try {
           const u = new URL(decodedUrl);
-          const lastSegment = decodeURIComponent(u.pathname.split('/').pop());
+          const lastSegment = decodeURIComponent(u.pathname.substring(u.pathname.lastIndexOf('/') + 1));
           name = lastSegment || 'download.bin';
         } catch {
           name = 'download.bin';
         }
       }
+
       name = cleanFilename(name);
+      if (!name.includes('.')) {
+        // extension না থাকলে, path দেখে আন্দাজ
+        try {
+          const u = new URL(decodedUrl);
+          const seg = u.pathname.split('/').pop() || '';
+          const dot = seg.lastIndexOf('.');
+          if (dot > 0) name += seg.slice(dot);
+        } catch {}
+      }
 
-      // 🔐 IMPORTANT: Properly encode path segments for IDM/Worker
-      const safeUrl = makeSafeUrl(decodedUrl);
-      const payload = { url: safeUrl, name };
-
+      // Payload as per original flow
+      const payload = { url: decodedUrl, name };
       const encrypted = await encrypt(JSON.stringify(payload));
       const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
 
@@ -152,7 +153,6 @@
       document.getElementById('result').classList.remove('hidden');
     });
 
-    // Extractor -> nice filename for UI
     document.getElementById('extractBtn').addEventListener('click', async function () {
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
@@ -163,6 +163,7 @@
         return;
       }
 
+      // NEW: প্রথমেই deep decode করে ইনপুটে বসিয়ে দিচ্ছি যাতে তুমি চোখে দেখতে পাও
       const url = deepDecode(raw);
       urlInput.value = url;
 
@@ -173,7 +174,7 @@
 
       let filename = '';
 
-      // PixelDrain special case
+      // PixelDrain special-case (unchanged, but uses decoded url now)
       if (url.includes('pixeldrain.dev/api/file/') || url.includes('pixeldra.in/api/file/')) {
         try {
           const fileID = url.split('/file/')[1].split('?')[0];
@@ -204,7 +205,8 @@
       if (!filename) {
         try {
           const u = new URL(url);
-          const lastSegment = u.pathname.substring(u.pathname.lastIndexOf('/') + 1);
+          const path = u.pathname;
+          const lastSegment = path.substring(path.lastIndexOf('/') + 1);
           filename = decodeURIComponent(lastSegment) || '';
         } catch { filename = ''; }
       }
