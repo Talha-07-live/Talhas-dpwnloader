@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talha's Downloader</title>
+  <link rel="icon" href="https://s10.gifyu.com/images/SrMU9.png" />
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  
+  <style>
+    input, textarea, button { background-color: white; color: black; border: 1px solid #ccc; }
+    ::placeholder { color: #555; }
+    @media (prefers-color-scheme: dark) {
+      input, textarea, button { background-color: #1e1e1e; color: #ffffff; border: 1px solid #555; }
+      ::placeholder { color: #bbb; }
+    }
+    @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
+    .animate-fade { animation: fadeInUp 0.6s ease-in-out both; }
+    .glass { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(8px); }
+    body { background: linear-gradient(to right, #0f0f0f, #1a1a1a); }
+  </style>
+</head>
+<body class="bg-gray-800 p-3 text-gray-300 text-xs leading-relaxed break-words">
+
+  <div class="flex justify-center items-center min-h-screen">
+  <div class="w-full max-w-md p-6 rounded-xl glass animate-fade text-center shadow-xl">
+    <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold font-mono mb-6 leading-snug text-center break-words">
+      <span class="inline-block w-full text-center">🔗 Talha's Downloader</span>
+    </h1>
+
+    <form id="downloadForm" class="space-y-4">
+      <input type="url" id="url" placeholder="Enter Direct Download URL"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+
+      <input type="text" id="name" placeholder="Enter File Name (e.g. myvideo.mp4)"
+        class="w-full p-3 rounded bg-black/30 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+
+      <button type="button" id="extractBtn"
+        class="w-full bg-yellow-500 hover:bg-yellow-600 transition-colors p-2 rounded text-black font-semibold">
+        🔍 Name Extractor
+      </button>
+
+      <button type="submit"
+        class="w-full bg-blue-600 hover:bg-blue-800 transition-colors p-3 rounded text-white font-semibold">
+        ⚡ Generate Download Link
+      </button>
+    </form>
+
+    <div id="result" class="hidden mt-8 text-center animate-fade">
+      <h2 class="text-xl font-bold mb-4 break-words">✅ Download Link Generated</h2>
+      <a id="downloadBtn" href="#"
+        class="inline-block bg-green-600 hover:bg-green-700 px-6 py-3 rounded font-semibold transition-colors">
+        ⬇️ Download Here
+      </a>
+
+      <p class="text-xs text-gray-300 text-center mt-4 bg-gray-800 p-3 rounded leading-relaxed text-left break-words">
+        <strong>Welcome to Talha's Downloader.</strong><br>
+        This page made for <span class="text-white text-center font-semibold">"Talha's Collection"</span><br>
+        <span class="font-semibold text-center text-white">© 2020-2025 Talha's Collection • Made by Talha</span>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // NEW: Deep decode helper — percent-encoded URL গুলো বারবার decode করবে যতক্ষণ না আর বদলায়
+    function deepDecode(str) {
+      if (!str) return str;
+      let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, ''); // surrounding quotes strip
+      for (let i = 0; i < 5; i++) {
+        try {
+          const dec = decodeURIComponent(prev);
+          if (dec === prev) break;
+          prev = dec;
+        } catch {
+          break; // invalid sequence হলে থামবে
+        }
+      }
+      return prev;
+    }
+
+    async function encrypt(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const keyData = encoder.encode("Talha<what!".padEnd(32)); // same key (padded)
+      const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
+      const fullBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+      fullBuffer.set(iv);
+      fullBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
+      return btoa(String.fromCharCode(...fullBuffer));
+    }
+
+    // NEW: filename clean helper
+    function cleanFilename(name) {
+      if (!name) return "";
+      // windows-invalid chars replace & trim spaces/dots
+      return name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, ' ')
+                 .replace(/\s+/g, ' ')
+                 .replace(/^\.+|\.+$/g, '')
+                 .trim();
+    }
+
+    document.getElementById('downloadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const urlInput = document.getElementById('url');
+      const nameInput = document.getElementById('name');
+
+      // NEW: Unsensitize (decode) the URL before everything
+      let rawUrl = urlInput.value.trim();
+      let decodedUrl = deepDecode(rawUrl);
+
+      // যদি scheme না থাকে কিন্তু decode করে ঠিক হয়, সেইটাই ব্যবহার করবো
+      try {
+        // validate URL; যদি invalid হয়, error দিবো
+        const u = new URL(decodedUrl);
+        if (!/^https?:$/.test(u.protocol)) throw new Error('Invalid protocol');
+      } catch {
+        alert('⚠️ Please enter a valid HTTP/HTTPS URL (after decoding).');
+        return;
+      }
+
+      // Name খালি থাকলে extractor-এর মতোই এখানেই fallback নিয়ে আসি (quick path)
+      let name = nameInput.value.trim();
+      if (!name) {
+        try {
+          const u = new URL(decodedUrl);
+          const lastSegment = decodeURIComponent(u.pathname.substring(u.pathname.lastIndexOf('/') + 1));
+          name = lastSegment || 'download.bin';
+        } catch {
+          name = 'download.bin';
+        }
+      }
+
+      name = cleanFilename(name);
+      if (!name.includes('.')) {
+        // extension না থাকলে, path দেখে আন্দাজ
+        try {
+          const u = new URL(decodedUrl);
+          const seg = u.pathname.split('/').pop() || '';
+          const dot = seg.lastIndexOf('.');
+          if (dot > 0) name += seg.slice(dot);
+        } catch {}
+      }
+
+      // Payload as per original flow
+      const payload = { url: decodedUrl, name };
+      const encrypted = await encrypt(JSON.stringify(payload));
+      const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
+
+      document.getElementById('downloadBtn').href = finalLink;
+      document.getElementById('result').classList.remove('hidden');
+    });
+
+    document.getElementById('extractBtn').addEventListener('click', async function () {
+      const urlInput = document.getElementById('url');
+      const nameInput = document.getElementById('name');
+      const raw = urlInput.value.trim();
+
+      if (!raw) {
+        alert('⚠️ Please enter a download URL first.');
+        return;
+      }
+
+      // NEW: প্রথমেই deep decode করে ইনপুটে বসিয়ে দিচ্ছি যাতে তুমি চোখে দেখতে পাও
+      const url = deepDecode(raw);
+      urlInput.value = url;
+
+      if (!url.startsWith('http')) {
+        alert('⚠️ Decoded URL is not HTTP/HTTPS.');
+        return;
+      }
+
+      let filename = '';
+
+      // PixelDrain special-case (unchanged, but uses decoded url now)
+      if (url.includes('pixeldrain.dev/api/file/') || url.includes('pixeldra.in/api/file/')) {
+        try {
+          const fileID = url.split('/file/')[1].split('?')[0];
+          const apiURL = `https://pixeldrain.com/api/file/${fileID}/info`;
+          const response = await fetch(apiURL);
+          const data = await response.json();
+          if (data.success && data.name) {
+            filename = data.name;
+          }
+        } catch (err) {
+          console.error('❌ PixelDrain fetch error:', err);
+        }
+      }
+
+      if (!filename) {
+        try {
+          const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
+          const disposition = resp.headers.get('Content-Disposition');
+          if (disposition && disposition.includes('filename=')) {
+            const match = disposition.match(/filename[^;=\n]*=(['"]?)([^'";\n]*)\1/);
+            if (match && match[2]) filename = match[2];
+          }
+        } catch (err) {
+          console.warn('❌ Fetch error or CORS issue:', err);
+        }
+      }
+
+      if (!filename) {
+        try {
+          const u = new URL(url);
+          const path = u.pathname;
+          const lastSegment = path.substring(path.lastIndexOf('/') + 1);
+          filename = decodeURIComponent(lastSegment) || '';
+        } catch { filename = ''; }
+      }
+
+      if (!filename) {
+        alert('❌ Could not extract filename.');
+        return;
+      }
+
+      const lastDotIndex = filename.lastIndexOf('.');
+      let extension = '';
+      if (lastDotIndex !== -1 && lastDotIndex < filename.length - 1) {
+        extension = filename.substring(lastDotIndex);
+        filename = filename.substring(0, lastDotIndex);
+      }
+
+      const cleanedNameBase = cleanFilename(filename.replace(/\./g, ' '));
+      const finalName = `[Talha]${cleanedNameBase}${extension}`;
+      nameInput.value = finalName;
+    });
+  </script>
+</body>
+</html>
