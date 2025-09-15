@@ -62,26 +62,27 @@
   </div>
 
   <script>
-    // NEW: Deep decode helper — percent-encoded URL গুলো বারবার decode করবে যতক্ষণ না আর বদলায়
+    // Deep decode helper
     function deepDecode(str) {
       if (!str) return str;
-      let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, ''); // surrounding quotes strip
+      let prev = str.replace(/^"+|"+$/g, '').replace(/^'+|'+$/g, '');
       for (let i = 0; i < 5; i++) {
         try {
           const dec = decodeURIComponent(prev);
           if (dec === prev) break;
           prev = dec;
         } catch {
-          break; // invalid sequence হলে থামবে
+          break;
         }
       }
       return prev;
     }
 
+    // Encrypt helper
     async function encrypt(text) {
       const encoder = new TextEncoder();
       const data = encoder.encode(text);
-      const keyData = encoder.encode("Talha<what!".padEnd(32)); // same key (padded)
+      const keyData = encoder.encode("Talha<what!".padEnd(32));
       const cryptoKey = await crypto.subtle.importKey("raw", keyData.slice(0, 32), "AES-GCM", false, ["encrypt"]);
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encryptedBuffer = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, data);
@@ -91,42 +92,40 @@
       return btoa(String.fromCharCode(...fullBuffer));
     }
 
-    // NEW: filename clean helper
+    // Clean filename
     function cleanFilename(name) {
       if (!name) return "";
-      // windows-invalid chars replace & trim spaces/dots
       return name.replace(/[\\/:*?"<>|\u0000-\u001F]/g, ' ')
                  .replace(/\s+/g, ' ')
                  .replace(/^\.+|\.+$/g, '')
                  .trim();
     }
 
+    // Submit
     document.getElementById('downloadForm').addEventListener('submit', async function(e) {
       e.preventDefault();
 
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
 
-      // NEW: Unsensitize (decode) the URL before everything
       let rawUrl = urlInput.value.trim();
       let decodedUrl = deepDecode(rawUrl);
 
-      // যদি scheme না থাকে কিন্তু decode করে ঠিক হয়, সেইটাই ব্যবহার করবো
+      // Validate decoded URL
       try {
-        // validate URL; যদি invalid হয়, error দিবো
         const u = new URL(decodedUrl);
         if (!/^https?:$/.test(u.protocol)) throw new Error('Invalid protocol');
       } catch {
-        alert('⚠️ Please enter a valid HTTP/HTTPS URL (after decoding).');
+        alert('⚠️ Please enter a valid HTTP/HTTPS URL.');
         return;
       }
 
-      // Name খালি থাকলে extractor-এর মতোই এখানেই fallback নিয়ে আসি (quick path)
+      // Filename
       let name = nameInput.value.trim();
       if (!name) {
         try {
           const u = new URL(decodedUrl);
-          const lastSegment = decodeURIComponent(u.pathname.substring(u.pathname.lastIndexOf('/') + 1));
+          const lastSegment = decodeURIComponent(u.pathname.split('/').pop());
           name = lastSegment || 'download.bin';
         } catch {
           name = 'download.bin';
@@ -134,18 +133,10 @@
       }
 
       name = cleanFilename(name);
-      if (!name.includes('.')) {
-        // extension না থাকলে, path দেখে আন্দাজ
-        try {
-          const u = new URL(decodedUrl);
-          const seg = u.pathname.split('/').pop() || '';
-          const dot = seg.lastIndexOf('.');
-          if (dot > 0) name += seg.slice(dot);
-        } catch {}
-      }
 
-      // Payload as per original flow
-      const payload = { url: decodedUrl, name };
+      // ✅ Encode URL again for Worker (keep %20 etc.)
+      const payload = { url: encodeURI(decodedUrl), name };
+
       const encrypted = await encrypt(JSON.stringify(payload));
       const finalLink = `https://talhasdownloader.talha07.workers.dev/?Talha=${encodeURIComponent(encrypted)}`;
 
@@ -153,6 +144,7 @@
       document.getElementById('result').classList.remove('hidden');
     });
 
+    // Extractor
     document.getElementById('extractBtn').addEventListener('click', async function () {
       const urlInput = document.getElementById('url');
       const nameInput = document.getElementById('name');
@@ -163,7 +155,6 @@
         return;
       }
 
-      // NEW: প্রথমেই deep decode করে ইনপুটে বসিয়ে দিচ্ছি যাতে তুমি চোখে দেখতে পাও
       const url = deepDecode(raw);
       urlInput.value = url;
 
@@ -174,7 +165,7 @@
 
       let filename = '';
 
-      // PixelDrain special-case (unchanged, but uses decoded url now)
+      // PixelDrain special case
       if (url.includes('pixeldrain.dev/api/file/') || url.includes('pixeldra.in/api/file/')) {
         try {
           const fileID = url.split('/file/')[1].split('?')[0];
