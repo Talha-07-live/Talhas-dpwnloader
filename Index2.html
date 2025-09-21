@@ -175,7 +175,7 @@
       let filename = '';
 
       // PixelDrain special-case (unchanged, but uses decoded url now)
-      if (url.includes('pixeldrain.dev/api/file/') || url.includes('pixeldra.in/api/file/')) {
+      if (url.includes('pixeldrain.dev/api/file/') || url.includes('https://pixeldrain.sriflix.my/')) {
         try {
           const fileID = url.split('/file/')[1].split('?')[0];
           const apiURL = `https://pixeldrain.com/api/file/${fileID}/info`;
